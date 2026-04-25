@@ -19,14 +19,78 @@ Convert natural language queries into SQL and execute them seamlessly on a Postg
 
 ## 🛠️ Tech Stack
 
-| Category             | Technology        |
-| -------------------- | ----------------- |
-| **Backend**          | FastAPI (Python)  |
-| **Frontend**         | React (Vite)      |
-| **Database**         | PostgreSQL        |
-| **LLM API**          | Groq API          |
-| **Authentication**   | JWT Tokens        |
-| **Deployment Ready** | Docker compatible |
+| Category           | Technology       |
+| ------------------ | ---------------- |
+| **Backend**        | FastAPI (Python) |
+| **Frontend**       | React (Vite)     |
+| **Database**       | PostgreSQL       |
+| **LLM API**        | Groq API         |
+| **Authentication** | JWT Tokens       |
+
+---
+
+## ✅ Current Features Available
+
+### Authentication & User Management
+
+- ✔️ **User Registration** - Sign up with username and password
+- ✔️ **Secure Login** - JWT token-based authentication with secure cookies
+- ✔️ **Password Hashing** - Passwords encrypted using secure hashing algorithms
+- ✔️ **Session Management** - Automatic session handling with token expiration
+- ✔️ **Logout Functionality** - Clear session and revoke access tokens
+- ✔️ **User Information** - View currently logged-in user details
+
+### Natural Language to SQL Conversion
+
+- ✔️ **NL Query to SQL** - Convert natural language questions to SQL using Groq AI
+- ✔️ **SQL Error Handling** - Automatic error detection and recovery with retry mechanism
+- ✔️ **SQL Validation** - Ensure only SELECT queries are executed for safety
+- ✔️ **Query Explanation** - Get explanations of generated SQL queries
+
+### Database Operations
+
+- ✔️ **Raw SQL Execution** - Execute raw SQL queries directly on your database
+- ✔️ **Database Schema Exploration** - View all tables in your database
+- ✔️ **Table Information** - Inspect detailed schema of specific tables (columns, types, constraints)
+- ✔️ **Complete Schema Retrieval** - Get full database schema in one call
+- ✔️ **Multiple Query Support** - Support for complex queries with JOINs, WHERE clauses, aggregations
+- ✔️ **Pre-configured Database Access** - Query the database created by the application creator
+
+### Frontend Features
+
+- ✔️ **Responsive Dashboard** - User-friendly dashboard after login
+- ✔️ **Query Interface** - Simple interface to input natural language questions
+- ✔️ **Real-time Results** - Instant query execution and result display
+- ✔️ **Protected Routes** - Secure navigation with authentication checks
+- ✔️ **Error Messages** - Clear, user-friendly error notifications
+- ✔️ **Modern UI/UX** - Built with React and Vite for fast, smooth experience
+
+### Data Management
+
+- ✔️ **Multiple Database Support** - Separate databases for user authentication and data queries
+- ✔️ **Pre-configured Tables** - Access to pre-configured tables set up by the application creator
+- ✔️ **CSV Data Import** - Populate tables with CSV file data (setup by admin)
+- ✔️ **Data Integrity** - Foreign key constraints and validation support
+
+### Security Features
+
+- ✔️ **JWT Authentication** - Secure token-based authentication
+- ✔️ **Protected Endpoints** - All query endpoints require valid authentication
+- ✔️ **SQL Injection Prevention** - Parameterized queries prevent SQL injection
+- ✔️ **Secure Cookie Handling** - HttpOnly, secure cookie flags enabled
+- ✔️ **Environment Variables** - Sensitive data stored in `.env` (never committed)
+- ✔️ **Password Security** - Hashed password storage with no plaintext storage
+
+### ⚠️ Current Limitation
+
+**Database Ownership:** Currently, all users access a **shared database created by the application creator**. Users can:
+
+- Query the pre-configured tables
+- View database schema
+- Execute SQL commands on the existing tables
+- But **cannot create their own databases or tables**
+
+This is a **significant limitation** that will be addressed in upcoming versions.
 
 ---
 
@@ -136,15 +200,29 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
-#### 4. Setup Database
+#### 4. Setup Databases
+
+You need to create **two separate databases**:
+
+1. **User Database** (`user_db`) - Stores user authentication information (username, hashed password)
+2. **Data Database** (`nl_to_sql_db`) - Your personal database where you'll create tables and insert data to query
 
 ```bash
-# Create PostgreSQL database
+# Create User Database (for storing user credentials)
+createdb user_db
+
+# Create your Data Database (for your custom tables and data)
 createdb nl_to_sql_db
 
-# Run migrations (if using Alembic)
-alembic upgrade head
 ```
+
+**Important:** After creating these databases, you can populate `nl_to_sql_db` with:
+
+- Your own custom tables with your own schema
+- CSV files to populate these tables
+- Any data structure you need to query against
+
+The `user_db` will be auto-managed by the application for user authentication.
 
 #### 5. Run FastAPI Server
 
@@ -230,7 +308,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 ### User Database Schema
 
-The user database should contain a `users` table with the following structure:
+The **user database** (`user_db`) stores authentication information with the following table structure:
 
 ```sql
 CREATE TABLE users (
@@ -241,6 +319,65 @@ CREATE TABLE users (
 ```
 
 **Important:** Password must be stored as a hashed value, never in plaintext. The application automatically hashes passwords during signup using secure hashing algorithms.
+
+### Data Database Schema
+
+The **data database** (`nl_to_sql_db`) is a **shared database** created by the application creator where all users access the same tables:
+
+**Note:** Currently, all users query the same pre-configured database. This means:
+
+- ✅ All users can query the same tables
+- ✅ All users see the same data
+- ❌ Users **cannot create their own tables**
+- ❌ Users **cannot upload their own data**
+- ❌ Users **cannot manage their own database schema**
+
+**Example - Current Setup (Shared Database):**
+
+```sql
+CREATE TABLE students (
+    student_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    cgpa NUMERIC(4,2),
+    branch VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE companies (
+    company_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    industry VARCHAR(100),
+    min_cgpa NUMERIC(3,2),
+    salary NUMERIC(10,2)
+);
+
+CREATE TABLE placements (
+    placement_id SERIAL PRIMARY KEY,
+    student_id INTEGER REFERENCES students(student_id),
+    company_id INTEGER REFERENCES companies(company_id),
+    placement_date DATE,
+    salary NUMERIC(10,2)
+);
+```
+
+**Data Population (Admin Only):**
+
+- CSV files containing data
+- SQL INSERT statements
+- Data migration tools
+
+### Future: User-Specific Databases
+
+🔮 **Coming Soon:** In future versions, this limitation will be addressed with:
+
+- Each user will have their own **isolated database**
+- Users can **create custom tables** with their own schema
+- Users can **upload CSV files** and populate their tables
+- Users can manage **multiple databases** within their account
+- Full **schema builder** UI for table creation
+
+For more details, see the **Future Improvements** section below.
 
 ---
 
@@ -410,24 +547,51 @@ For complete API documentation with interactive testing, visit `http://localhost
 
 ## 🔮 Future Improvements
 
+### ⭐ User-Specific Database Management (Addressing Current Limitation)
+
+**Major Enhancement:** Each user will have their own isolated database with full control over table creation and management.
+
+- [ ] **User Database Isolation** - Each user gets their own dedicated PostgreSQL database
+- [ ] **Table Creation API** - Create custom tables with user-defined schemas directly through the application
+- [ ] **Database Schema Management** - Full control over database structure, columns, data types, and constraints
+- [ ] **CSV Upload & Import** - Upload CSV files and automatically create tables with appropriate schema
+- [ ] **Bulk Data Insertion** - Import multiple CSV files with their corresponding table structures in a single operation
+- [ ] **Table Management UI** - Visual interface to create, modify, and delete tables
+- [ ] **Schema Builder** - Drag-and-drop schema designer for creating custom database structures
+- [ ] **Data Validation** - Validate data before insertion with custom rules and constraints
+- [ ] **Multi-Database Support** - Users can create and manage multiple databases within their account
+
+### Data Management
+
+- [ ] **Table Metadata** - Store and display table metadata (creation date, size, row count)
+- [ ] **Data Preview** - Preview table data with pagination
+- [ ] **Bulk Operations** - Bulk insert, update, or delete operations
+
+### Query History & Results
+
+- [ ] **Query History Storage** - Store all user's past queries for reference and reuse
+- [ ] **Query Analytics** - View statistics about frequently asked questions and query patterns
+- [ ] **Query Bookmarking** - Bookmark favorite queries for quick access
+- [ ] **Export Results** - Export query results in multiple formats:
+  - CSV (Comma-Separated Values)
+  - Excel (.xlsx)
+  - PDF (Formatted reports)
+  - JSON
+  - SQL INSERT statements
+- [ ] **Scheduled Queries** - Schedule queries to run at specific times
+- [ ] **Results Caching** - Cache frequently requested query results
+
+### Advanced Features
+
 - [ ] Query optimization suggestions
 - [ ] Support for multiple databases (MySQL, MongoDB)
 - [ ] Advanced filtering and sorting options
-- [ ] Query caching for frequently asked questions
-- [ ] Export results to CSV/Excel/PDF
-- [ ] Query analytics and insights
 - [ ] Multi-language support
 - [ ] Mobile app (React Native)
 - [ ] Real-time collaboration features
 - [ ] Saved query templates library
 - [ ] Advanced error recovery mechanisms
 - [ ] Performance monitoring dashboard
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -443,12 +607,6 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📞 Support
-
-For support, email support@nl2sql.com or create an issue in the repository.
-
----
-
 ## 🙏 Acknowledgments
 
 - [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
@@ -458,4 +616,4 @@ For support, email support@nl2sql.com or create an issue in the repository.
 
 ---
 
-**Built with ❤️ by [Your Name]**
+**Built with ❤️ by Vyshnav Reddy Pinreddy**
