@@ -388,19 +388,23 @@ For complete API documentation with interactive testing, visit `http://localhost
 
 ### Home Page
 
-![Home Page Placeholder](https://via.placeholder.com/800x400?text=Home+Page)
+![Home Page Placeholder](screenshots/home.png)
 
-### Query Interface
+### Login Interface
 
-![Query Interface Placeholder](https://via.placeholder.com/800x400?text=Query+Interface)
+![Login Interface Placeholder](screenshots/login.png)
+
+### SignUp Interface
+
+![Login Interface Placeholder](screenshots/signup.png)
 
 ### Results Display
 
-![Results Display Placeholder](https://via.placeholder.com/800x400?text=Results+Display)
+![Results Display Placeholder](screenshots/result.png)
 
 ### Dashboard
 
-![Dashboard Placeholder](https://via.placeholder.com/800x400?text=Dashboard)
+![Dashboard Placeholder](screenshots/dashboard.png)
 
 ---
 
