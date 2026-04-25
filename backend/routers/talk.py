@@ -23,10 +23,10 @@ class NaturalLanguageCommand(BaseModel):
 def ensure_select_query(sql: str):
     normalized_sql = sql.strip().lower()
 
-    if not normalized_sql.startswith(("select", "with")):
+    if not normalized_sql.startswith("select"):
         raise HTTPException(
             status_code=400,
-            detail="Generated SQL must be a SELECT query"
+            detail="Only SELECT queries are allowed"
         )
 
 def execute_select_query(sql: str, db: Session):
@@ -141,23 +141,10 @@ def get_schema(current_user:str=Depends(get_current_user),db:Session=Depends(get
 @router.post('/talk')
 def talk_to_db(command:SQLCommand,current_user:str=Depends(get_current_user),db:Session=Depends(get_talk_db)):
     try:
-        result = cast(CursorResult, db.execute(text(command.sql_command)))
-
-        if result.returns_rows:
-            rows = result.mappings().all()
-            data = [dict(row) for row in rows]
-
-            return {
-                "user":current_user,
-                "data":data
-            }
-
-        db.commit()
-
+        data = execute_select_query(command.sql_command, db)
         return {
             "user":current_user,
-            "message":"SQL command executed successfully",
-            "rows_affected":result.rowcount
+            "data":data
         }
     except DBAPIError as error:
         db.rollback()
