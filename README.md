@@ -129,6 +129,7 @@ Create a `.env` file in the `backend/` directory with the following variables:
 
 ```env
 DATABASE_URL=postgresql://username:password@localhost:5432/nl_to_sql_db
+USER_DATABASE_URL=postgresql://username:password@localhost:5432/user_db
 SECRET_KEY=your_secret_key_here_min_32_characters
 GROQ_API_KEY=your_groq_api_key_here
 ALGORITHM=HS256
@@ -178,19 +179,36 @@ The frontend will be available at `http://localhost:5173` (or the URL shown in t
 npm run build
 ```
 
+### Running Frontend & Backend Concurrently
+
+To run both the frontend and backend simultaneously from the root directory:
+
+```bash
+# From the root folder (nl_to_sql/)
+npm run dev
+```
+
+This command will start:
+
+- 🔵 **Backend**: FastAPI server on `http://localhost:8000`
+- 🟢 **Frontend**: React development server on `http://localhost:5173`
+
+Both will reload automatically on file changes.
+
 ---
 
 ## 🔑 Environment Variables
 
 ### Backend Environment Variables
 
-| Variable                      | Description                                     | Example                                                  |
-| ----------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| `DATABASE_URL`                | PostgreSQL connection string                    | `postgresql://user:password@localhost:5432/nl_to_sql_db` |
-| `GROQ_API_KEY`                | API key for Groq LLM service                    | `gsk_xxxxxxxxxxxxx`                                      |
-| `SECRET_KEY`                  | Secret key for JWT token signing (min 32 chars) | `your_secret_key_here_min_32_characters`                 |
-| `ALGORITHM`                   | JWT algorithm                                   | `HS256`                                                  |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration time in minutes                | `30`                                                     |
+| Variable                      | Description                                                       | Example                                                  |
+| ----------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `DATABASE_URL`                | PostgreSQL connection string for the data/query database          | `postgresql://user:password@localhost:5432/nl_to_sql_db` |
+| `USER_DATABASE_URL`           | PostgreSQL connection string for the user authentication database | `postgresql://user:password@localhost:5432/user_db`      |
+| `GROQ_API_KEY`                | API key for Groq LLM service                                      | `gsk_xxxxxxxxxxxxx`                                      |
+| `SECRET_KEY`                  | Secret key for JWT token signing (min 32 chars)                   | `your_secret_key_here_min_32_characters`                 |
+| `ALGORITHM`                   | JWT algorithm                                                     | `HS256`                                                  |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration time in minutes                                  | `30`                                                     |
 
 ### Creating `.env` File
 
@@ -203,11 +221,26 @@ npm run build
 
 ```
 DATABASE_URL=postgresql://your_user:your_password@localhost:5432/nl_to_sql_db
+USER_DATABASE_URL=postgresql://your_user:your_password@localhost:5432/user_db
 GROQ_API_KEY=gsk_your_api_key_here
 SECRET_KEY=your_super_secret_key_with_at_least_32_characters
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
+
+### User Database Schema
+
+The user database should contain a `users` table with the following structure:
+
+```sql
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL  -- Must be hashed using bcrypt or similar
+);
+```
+
+**Important:** Password must be stored as a hashed value, never in plaintext. The application automatically hashes passwords during signup using secure hashing algorithms.
 
 ---
 
@@ -232,27 +265,122 @@ User Input (NL) → Backend → Groq API → SQL Generation
 
 ## 📡 API Endpoints Overview
 
-### Authentication
+### Authentication Endpoints
 
-- `POST /auth/signup` - Register new user
-- `POST /auth/login` - User login
-- `POST /auth/logout` - User logout
+| Method | Endpoint  | Description                       | Auth Required |
+| ------ | --------- | --------------------------------- | ------------- |
+| `POST` | `/signup` | Register a new user               | ❌ No         |
+| `POST` | `/login`  | User login with username/password | ❌ No         |
+| `POST` | `/logout` | User logout and clear session     | ✅ Yes        |
+| `GET`  | `/me`     | Get current logged-in user info   | ✅ Yes        |
 
-### Query Management
+### Database Schema & Metadata Endpoints
 
-- `POST /api/query` - Convert NL to SQL and execute
-- `GET /api/history` - Get query history
-- `GET /api/results/{id}` - Get specific query results
+| Method | Endpoint               | Description                                         | Auth Required |
+| ------ | ---------------------- | --------------------------------------------------- | ------------- |
+| `GET`  | `/tables`              | List all available tables in the database           | ✅ Yes        |
+| `GET`  | `/tables/{table_name}` | Get detailed schema and columns of a specific table | ✅ Yes        |
+| `GET`  | `/schema`              | Get complete database schema for all tables         | ✅ Yes        |
 
-### LLM
+### Query Execution Endpoints
 
-- `POST /llm/generate` - Generate SQL from natural language
+| Method | Endpoint        | Description                                          | Auth Required |
+| ------ | --------------- | ---------------------------------------------------- | ------------- |
+| `POST` | `/talk`         | Execute raw SQL command directly                     | ✅ Yes        |
+| `POST` | `/talk/natural` | Convert natural language question to SQL and execute | ✅ Yes        |
 
-### Health Check
+### Request/Response Examples
 
-- `GET /health` - API health status
+**Signup:**
 
-For complete API documentation, visit `http://localhost:8000/docs` when the backend is running.
+```json
+POST /signup
+{
+  "username": "john_doe",
+  "password": "securepassword123",
+  "confirm_password": "securepassword123"
+}
+```
+
+**Login:**
+
+```json
+POST /login
+{
+  "username": "john_doe",
+  "password": "securepassword123"
+}
+```
+
+**Get Current User:**
+
+```json
+GET /me
+Response:
+{
+  "username": "john_doe"
+}
+```
+
+**Get All Tables:**
+
+```json
+GET /tables
+Response:
+["students", "companies", "placements"]
+```
+
+**Get Table Schema:**
+
+```json
+GET /tables/students
+Response:
+{
+  "table": "students",
+  "columns": [
+    {
+      "column": "student_id",
+      "type": "integer",
+      "nullable": false,
+      "primary_key": true
+    }
+  ]
+}
+```
+
+**Natural Language Query:**
+
+```json
+POST /talk/natural
+{
+  "question": "Show me all students with CGPA above 8.0"
+}
+Response:
+{
+  "user": "john_doe",
+  "data": [
+    {"student_id": 1, "username": "alice", "cgpa": 8.5},
+    {"student_id": 2, "username": "bob", "cgpa": 8.2}
+  ]
+}
+```
+
+**Raw SQL Query:**
+
+```json
+POST /talk
+{
+  "sql_command": "SELECT * FROM students WHERE cgpa > 8.0;"
+}
+Response:
+{
+  "user": "john_doe",
+  "data": [...]
+}
+```
+
+**Interactive API Testing:**
+For complete API documentation with interactive testing, visit `http://localhost:8000/docs` when the backend is running (Swagger UI).
 
 ---
 
